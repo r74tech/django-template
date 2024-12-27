@@ -44,8 +44,8 @@ services:
       - '80:80'
       - '443:443'
     environment:
-      DOMAINS: 'stg.example.com -> http://nginx:8002'
-      STAGE: 'staging'
+      DOMAINS: 'stg.example.com -> http://nginx:8002'  # Change your domain here, because Let's Encrypt prohibits the use of the example.com domain
+      STAGE: 'local'
     volumes:
       - ssl_certs_data:/var/lib/https-portal
     depends_on:
