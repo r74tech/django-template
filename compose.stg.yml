@@ -1,0 +1,84 @@
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    command: gunicorn app.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 4
+    working_dir: /usr/src/app/
+    volumes:
+      - static_volume:/usr/src/app/staticfiles
+      - media_volume:/usr/src/app/mediafiles
+    expose:
+      - 8000
+    environment:
+      - DEBUG=False
+    env_file:
+      - ./.env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - front
+      - back
+    restart: always
+
+  db:
+    image: postgres:15-bookworm
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - ./.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - back
+    restart: always
+
+  https-portal:
+    image: steveltn/https-portal:1
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAINS: 'stg.example.com -> http://nginx:8002'
+      STAGE: 'staging'
+    volumes:
+      - ssl_certs_data:/var/lib/https-portal
+    depends_on:
+      - nginx
+    networks:
+      - front
+    restart: always
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    volumes:
+      - static_volume:/usr/src/app/staticfiles
+      - media_volume:/usr/src/app/mediafiles
+    expose:
+      - 8002
+    env_file:
+      - ./.env
+    depends_on:
+      - app
+    networks:
+      - front
+    restart: always
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
+  ssl_certs_data:
+
+networks:
+  front:
+    driver: bridge
+  back:
+    driver: bridge
